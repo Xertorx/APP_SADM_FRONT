@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'screens/adoptante_form_screen.dart';
+import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -16,7 +16,7 @@ class SadmApp extends StatelessWidget {
       title: 'SADM - Adopción de mascotas',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const AdoptanteFormScreen(),
+      home: const HomeScreen(),
     );
   }
 }

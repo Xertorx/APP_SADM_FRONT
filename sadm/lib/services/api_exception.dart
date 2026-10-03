@@ -33,3 +33,9 @@ class ConnectionException extends ApiException {
 class ServerException extends ApiException {
   const ServerException(super.message);
 }
+
+/// Raised on HTTP 404 responses (e.g. a referenced resource, like the
+/// dador, does not exist).
+class NotFoundException extends ApiException {
+  const NotFoundException(super.message);
+}
