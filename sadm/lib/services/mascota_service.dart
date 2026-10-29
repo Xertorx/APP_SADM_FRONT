@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 
 import '../config/app_config.dart';
 import '../models/mascota.dart';
+import '../models/mascota_detalle.dart';
 import 'api_exception.dart';
+import 'auth_session.dart';
 
 /// HTTP service responsible for talking to the SADM mascotas API.
 class MascotaService {
@@ -21,6 +23,7 @@ class MascotaService {
   /// Throws an [ApiException] subtype on failure.
   Future<int> crear(Mascota mascota, List<XFile> fotos) async {
     final request = http.MultipartRequest('POST', _createUri)
+      ..headers.addAll(AuthSession.headers)
       ..files.add(
         http.MultipartFile.fromString(
           'datos',
@@ -67,6 +70,10 @@ class MascotaService {
         throw ValidationException(
           message ?? 'Los datos ingresados no son válidos.',
         );
+      case 401:
+        throw NoAutenticadoException(message ?? 'Tu sesión expiró. Inicia sesión para continuar.');
+      case 403:
+        throw SinPermisosException(message ?? 'No tienes permisos para publicar mascotas.');
       case 404:
         throw NotFoundException(message ?? 'El usuario dador no existe');
       default:
@@ -74,6 +81,77 @@ class MascotaService {
           message ?? 'Ocurrió un error inesperado (código ${response.statusCode}).',
         );
     }
+  }
+
+  /// `GET /api/mascotas` — every mascota that can be adopted. Accepts a bare
+  /// JSON array or one wrapped in `data` (optionally paged under `content`).
+  Future<List<MascotaDetalle>> listarDisponibles() async {
+    late final http.Response response;
+    try {
+      response = await _client
+          .get(
+            Uri.parse('${AppConfig.baseUrl}/mascotas'),
+            headers: AuthSession.headers,
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      throw const ConnectionException();
+    }
+
+    if (response.statusCode == 200) {
+      try {
+        var decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map<String, dynamic>) decoded = decoded['data'] ?? decoded;
+        if (decoded is Map<String, dynamic>) decoded = decoded['content'];
+        return (decoded as List)
+            .cast<Map<String, dynamic>>()
+            .map((json) => MascotaDetalle.fromJson({'estado': 'DISPONIBLE', ...json}))
+            .toList();
+      } catch (_) {
+        throw const ServerException('Respuesta inesperada del servidor.');
+      }
+    }
+
+    final message = _extractMessage(response.body);
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw NoAutenticadoException(message ?? 'Tu sesión expiró. Inicia sesión para continuar.');
+    }
+    throw ServerException(
+      message ?? 'Ocurrió un error inesperado (código ${response.statusCode}).',
+    );
+  }
+
+  /// `GET /api/mascotas/{id}`. Throws an [ApiException] subtype on failure.
+  Future<MascotaDetalle> obtenerPorId(int id) async {
+    late final http.Response response;
+    try {
+      response = await _client
+          .get(
+            Uri.parse('${AppConfig.baseUrl}/mascotas/$id'),
+            headers: AuthSession.headers,
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      throw const ConnectionException();
+    }
+
+    if (response.statusCode == 200) {
+      try {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = decoded['data'];
+        return MascotaDetalle.fromJson(data is Map<String, dynamic> ? data : decoded);
+      } catch (_) {
+        throw const ServerException('Respuesta inesperada del servidor.');
+      }
+    }
+
+    final message = _extractMessage(response.body);
+    if (response.statusCode == 404) {
+      throw NotFoundException(message ?? 'La mascota no existe.');
+    }
+    throw ServerException(
+      message ?? 'Ocurrió un error inesperado (código ${response.statusCode}).',
+    );
   }
 
   /// Resolves the content type of a picked photo (`image/jpeg` or

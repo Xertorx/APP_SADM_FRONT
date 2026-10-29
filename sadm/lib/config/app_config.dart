@@ -19,14 +19,14 @@ class AppConfig {
     if (!kIsWeb && Platform.isAndroid) {
       return 'http://10.0.2.2:8862/SADM';
     }
-    return 'http://localhost:8862/SADM';
+    return 'http://localhost:8862/SADM/api';
   }
 }
 
-/// Default values used to pre-fill the adoptante registration form.
+/// Default values sent when registering a usuario.
 class AppConstants {
   AppConstants._();
 
-  static const String defaultTipoUsuario = 'ADOPTANTE';
+  static const String defaultTipoUsuario = 'USUARIO';
   static const String defaultEstado = 'ACTIVO';
 }

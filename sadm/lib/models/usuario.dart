@@ -1,8 +1,9 @@
-/// Data model for an "adoptante" (adopter) registration request.
+/// Data model for a "usuario" registration request. A usuario can both adopt
+/// and give pets up for adoption.
 ///
 /// The JSON keys match exactly what the SADM backend expects.
-class Adoptante {
-  const Adoptante({
+class Usuario {
+  const Usuario({
     required this.nombre,
     required this.apellido,
     required this.identificacion,
@@ -27,7 +28,7 @@ class Adoptante {
   final String estado;
 
   /// Converts this model into the exact JSON payload expected by
-  /// `POST /SADM/adoptantes/crear`. No extra fields (like `id`) are sent.
+  /// `POST /SADM/api/usuarios/crear`. No extra fields (like `id`) are sent.
   Map<String, dynamic> toJson() {
     return {
       'nombre': nombre,

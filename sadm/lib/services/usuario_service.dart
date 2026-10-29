@@ -4,26 +4,26 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
-import '../models/adoptante.dart';
+import '../models/usuario.dart';
 import 'api_exception.dart';
 
-/// HTTP service responsible for talking to the SADM adoptantes API.
-class AdoptanteService {
-  AdoptanteService({http.Client? client}) : _client = client ?? http.Client();
+/// HTTP service responsible for talking to the SADM usuarios API.
+class UsuarioService {
+  UsuarioService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
-  Uri get _createUri => Uri.parse('${AppConfig.baseUrl}/adoptantes/crear');
+  Uri get _createUri => Uri.parse('${AppConfig.baseUrl}/usuarios/crear');
 
-  /// Registers a new adoptante. Throws an [ApiException] subtype on failure.
-  Future<void> crear(Adoptante adoptante) async {
+  /// Registers a new usuario. Throws an [ApiException] subtype on failure.
+  Future<void> crear(Usuario usuario) async {
     late final http.Response response;
     try {
       response = await _client
           .post(
             _createUri,
             headers: const {'Content-Type': 'application/json; charset=utf-8'},
-            body: jsonEncode(adoptante.toJson()),
+            body: jsonEncode(usuario.toJson()),
           )
           .timeout(const Duration(seconds: 15));
     } on SocketException {
