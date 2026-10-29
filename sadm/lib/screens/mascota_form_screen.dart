@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../models/mascota.dart';
 import '../services/api_exception.dart';
+import '../services/auth_session.dart';
 import '../services/mascota_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/mascota_validators.dart';
@@ -60,6 +61,8 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
   final _service = MascotaService();
   final _picker = ImagePicker();
 
+  // El dador es el usuario logueado; solo se pide el id si el token no lo trae.
+  final int? _usuarioId = AuthSession.usuarioId;
   final _idDadorCtrl = TextEditingController();
   final _nombreCtrl = TextEditingController();
   final _razaCtrl = TextEditingController();
@@ -132,7 +135,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
     setState(() => _status = _SubmitStatus.loading);
 
     final mascota = Mascota(
-      idDador: int.parse(_idDadorCtrl.text.trim()),
+      idDador: _usuarioId ?? int.parse(_idDadorCtrl.text.trim()),
       nombre: _nombreCtrl.text.trim(),
       especie: _especie!,
       raza: _razaCtrl.text.trim().isEmpty ? null : _razaCtrl.text.trim(),
@@ -220,16 +223,18 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                           children: [
                             const _SectionTitle('Datos de la mascota'),
                             const SizedBox(height: 12),
-                            _buildTextField(
-                              controller: _idDadorCtrl,
-                              label: '(temporal) ID del dador',
-                              icon: Icons.person_outline,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              validator: MascotaValidators.idDador,
-                              enabled: !isLoading,
-                            ),
-                            const SizedBox(height: 14),
+                            if (_usuarioId == null) ...[
+                              _buildTextField(
+                                controller: _idDadorCtrl,
+                                label: '(temporal) ID del dador',
+                                icon: Icons.person_outline,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                validator: MascotaValidators.idDador,
+                                enabled: !isLoading,
+                              ),
+                              const SizedBox(height: 14),
+                            ],
                             _buildTextField(
                               controller: _nombreCtrl,
                               label: 'Nombre',

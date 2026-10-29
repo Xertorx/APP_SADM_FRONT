@@ -1,8 +1,8 @@
-/// Field-level validation rules shared by the adoptante registration form.
+/// Field-level validation rules shared by the usuario registration form.
 class Validators {
   Validators._();
 
-  static final _nameRegExp = RegExp(r'^[A-Za-zÀ-ÖØ-öø-ÿ]{3,50}$');
+  static final _nameRegExp = RegExp(r'^[A-Za-zÀ-ÖØ-öø-ÿ]+(?: +[A-Za-zÀ-ÖØ-öø-ÿ]+)*$');
   static final _idRegExp = RegExp(r'^\d{1,10}$');
   static final _emailRegExp = RegExp(
     r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
@@ -14,8 +14,9 @@ class Validators {
   static String? nombreApellido(String? value, String label) {
     final v = value?.trim() ?? '';
     if (v.isEmpty) return 'Ingresa el $label.';
-    if (!_nameRegExp.hasMatch(v)) {
-      return '$label debe tener 3-50 letras, sin espacios ni números.';
+    final normalized = v.replaceAll(RegExp(r' +'), ' ');
+    if (!_nameRegExp.hasMatch(v) || normalized.length < 3 || normalized.length > 50) {
+      return '$label debe tener 3-50 caracteres, solo letras y espacios entre palabras.';
     }
     return null;
   }

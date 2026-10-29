@@ -3,24 +3,25 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../config/app_config.dart';
-import '../models/adoptante.dart';
-import '../services/adoptante_service.dart';
+import '../models/usuario.dart';
 import '../services/api_exception.dart';
+import '../services/usuario_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/validators.dart';
+import 'login_screen.dart';
 
-class AdoptanteFormScreen extends StatefulWidget {
-  const AdoptanteFormScreen({super.key});
+class RegistroScreen extends StatefulWidget {
+  const RegistroScreen({super.key});
 
   @override
-  State<AdoptanteFormScreen> createState() => _AdoptanteFormScreenState();
+  State<RegistroScreen> createState() => _RegistroScreenState();
 }
 
 enum _SubmitStatus { idle, loading, success }
 
-class _AdoptanteFormScreenState extends State<AdoptanteFormScreen> {
+class _RegistroScreenState extends State<RegistroScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _service = AdoptanteService();
+  final _service = UsuarioService();
 
   final _nombreCtrl = TextEditingController();
   final _apellidoCtrl = TextEditingController();
@@ -73,22 +74,22 @@ class _AdoptanteFormScreenState extends State<AdoptanteFormScreen> {
 
     setState(() => _status = _SubmitStatus.loading);
 
-    final adoptante = Adoptante(
-      nombre: _nombreCtrl.text.trim(),
-      apellido: _apellidoCtrl.text.trim(),
+    final usuario = Usuario(
+      nombre: _nombreCtrl.text.trim().replaceAll(RegExp(r' +'), ' '),
+      apellido: _apellidoCtrl.text.trim().replaceAll(RegExp(r' +'), ' '),
       identificacion: int.parse(_identificacionCtrl.text.trim()),
       fechaNacimiento: _fechaNacimiento!,
       correo: _correoCtrl.text.trim(),
       contrasena: _contrasenaCtrl.text,
       telefono: _telefonoCtrl.text.trim(),
       direccion: _direccionCtrl.text.trim(),
-      // Siempre se registran como adoptantes activos; no son editables desde la UI.
+      // Siempre se registran como usuarios activos; no son editables desde la UI.
       tipoUsuario: AppConstants.defaultTipoUsuario,
       estado: AppConstants.defaultEstado,
     );
 
     try {
-      await _service.crear(adoptante);
+      await _service.crear(usuario);
       if (!mounted) return;
       setState(() => _status = _SubmitStatus.success);
     } on ApiException catch (e) {
@@ -106,33 +107,23 @@ class _AdoptanteFormScreenState extends State<AdoptanteFormScreen> {
     }
   }
 
-  void _resetForm() {
-    _formKey.currentState?.reset();
-    _nombreCtrl.clear();
-    _apellidoCtrl.clear();
-    _identificacionCtrl.clear();
-    _correoCtrl.clear();
-    _contrasenaCtrl.clear();
-    _telefonoCtrl.clear();
-    _direccionCtrl.clear();
-    setState(() {
-      _fechaNacimiento = null;
-      _status = _SubmitStatus.idle;
-      _errorMessage = null;
-    });
+  void _irALogin() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_status == _SubmitStatus.success) {
-      return _SuccessView(onRegisterAnother: _resetForm);
+      return _SuccessView(onLogin: _irALogin);
     }
 
     final isLoading = _status == _SubmitStatus.loading;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registro de adoptante'),
+        title: const Text('Crear cuenta'),
       ),
       body: SafeArea(
         child: Center(
@@ -265,9 +256,13 @@ class _AdoptanteFormScreenState extends State<AdoptanteFormScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Registrar adoptante'),
+                          : const Text('Registrarme'),
                     ),
                     const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: isLoading ? null : _irALogin,
+                      child: const Text('¿Ya tienes cuenta? Inicia sesión'),
+                    ),
                     Text(
                       'Servidor: ${AppConfig.baseUrl}',
                       textAlign: TextAlign.center,
@@ -342,14 +337,14 @@ class _HeaderBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sé un nuevo adoptante',
+                  'Únete a SADM',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Completa tus datos para unirte a nuestra comunidad.',
+                  'Crea tu cuenta para adoptar o dar mascotas en adopción.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -444,14 +439,14 @@ class _ErrorBanner extends StatelessWidget {
 }
 
 class _SuccessView extends StatelessWidget {
-  const _SuccessView({required this.onRegisterAnother});
+  const _SuccessView({required this.onLogin});
 
-  final VoidCallback onRegisterAnother;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Registro de adoptante')),
+      appBar: AppBar(title: const Text('Crear cuenta')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -482,13 +477,13 @@ class _SuccessView extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'El adoptante fue registrado correctamente.',
+                    'Tu cuenta fue creada correctamente. Ya puedes iniciar sesión.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: onRegisterAnother,
-                    child: const Text('Registrar otro adoptante'),
+                    onPressed: onLogin,
+                    child: const Text('Iniciar sesión'),
                   ),
                 ],
               ),
