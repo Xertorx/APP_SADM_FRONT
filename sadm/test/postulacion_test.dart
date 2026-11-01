@@ -11,6 +11,7 @@ import 'package:sadm/screens/postulacion_dialog.dart';
 import 'package:sadm/services/auth_session.dart';
 import 'package:sadm/services/mascota_service.dart';
 import 'package:sadm/services/postulacion_service.dart';
+import 'package:sadm/services/resumen_postulacion_service.dart';
 import 'package:sadm/theme/app_theme.dart';
 
 http.Response _json(Object body, [int status = 200]) => http.Response.bytes(
@@ -67,7 +68,13 @@ class FakeApi {
     if (request.method == 'GET' && path.endsWith('/api/postulaciones/mascotas/7/resumen')) {
       resumenCalls++;
       if (resumenFalla) return _json({'message': 'boom'}, 500);
-      return postulacion == null ? _json({}, 404) : _json({'mascotaId': 7});
+      // El backend responde 200 siempre; `estado` solo viene si el usuario ya se postuló (HU11).
+      return _json({
+        'status': 200,
+        'data': postulacion == null
+            ? {'postulacionActiva': false}
+            : {'postulacionActiva': true, 'estado': postulacion!['estado']},
+      });
     }
     if (request.method == 'POST' && path.endsWith('/api/postulaciones')) {
       postCalls++;
@@ -103,6 +110,7 @@ Future<void> _abrirPantalla(WidgetTester tester, FakeApi api) async {
         mascotaId: 7,
         mascotaService: MascotaService(client: api.client),
         postulacionService: PostulacionService(client: api.client),
+        resumenService: ResumenPostulacionService(client: api.client),
       ),
     ),
   );
@@ -134,14 +142,15 @@ void main() {
 
       expect(find.text('Luna'), findsOneWidget);
       expect(_habilitado(tester, 'Solicitar adopción'), isTrue);
-      expect(find.text('Ya te postulaste'), findsNothing);
+      expect(find.textContaining('Ya te has postulado a esta mascota. Estado:'), findsNothing);
     });
 
-    testWidgets('deshabilitado con explicación si no está disponible', (tester) async {
+    testWidgets('mascota adoptada: botón "No disponible" deshabilitado con su mensaje (HU11)',
+        (tester) async {
       await _abrirPantalla(tester, FakeApi()..estado = 'ADOPTADA');
 
-      expect(_habilitado(tester, 'Solicitar adopción'), isFalse);
-      expect(find.textContaining('no está disponible'), findsOneWidget);
+      expect(_habilitado(tester, 'No disponible'), isFalse);
+      expect(find.text('Esta mascota ya fue adoptada'), findsOneWidget);
     });
 
     testWidgets('al abrir el detalle consulta el resumen de postulación y no hay aviso si no existe',
@@ -154,16 +163,17 @@ void main() {
         'GET /SADM/api/postulaciones/mascotas/7/resumen',
       ]);
       expect(_habilitado(tester, 'Solicitar adopción'), isTrue);
-      expect(find.text('Ya te postulaste'), findsNothing);
+      expect(find.textContaining('Ya te has postulado a esta mascota. Estado:'), findsNothing);
     });
 
-    testWidgets('resumen 200: muestra "Ya te postulaste" y deshabilita el botón', (tester) async {
+    testWidgets('resumen con estado: reemplaza el botón por el estado de la postulación (HU11)',
+        (tester) async {
       await _abrirPantalla(tester, FakeApi()..postulacion = _postulacionJson());
 
       expect(find.byType(EstadoChip), findsNWidgets(2));
-      expect(find.text('Ya te postulaste'), findsOneWidget);
-      expect(_habilitado(tester, 'Solicitar adopción'), isFalse);
-      expect(find.text('Ya tienes una postulación activa para esta mascota.'), findsOneWidget);
+      expect(find.text('Ya te has postulado a esta mascota. Estado:'), findsOneWidget);
+      expect(find.text('Etapa 1 en curso'), findsOneWidget);
+      expect(find.text('Solicitar adopción'), findsNothing);
     });
 
     testWidgets('si el resumen falla igual se muestra la mascota y se puede solicitar',
@@ -171,7 +181,7 @@ void main() {
       await _abrirPantalla(tester, FakeApi()..resumenFalla = true);
 
       expect(find.text('Luna'), findsOneWidget);
-      expect(find.text('Ya te postulaste'), findsNothing);
+      expect(find.textContaining('Ya te has postulado a esta mascota. Estado:'), findsNothing);
       expect(_habilitado(tester, 'Solicitar adopción'), isTrue);
     });
 
@@ -261,7 +271,7 @@ void main() {
       await tester.tap(find.text('Cerrar'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Ya te postulaste'), findsOneWidget);
+      expect(find.text('Ya te has postulado a esta mascota. Estado:'), findsOneWidget);
       expect(find.text('Solicitar adopción'), findsNothing);
     });
 
@@ -301,7 +311,7 @@ void main() {
       await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Ya te postulaste'), findsOneWidget);
+      expect(find.text('Ya te has postulado a esta mascota. Estado:'), findsOneWidget);
     });
 
     testWidgets('MASCOTA_NO_DISPONIBLE muestra el mensaje y refresca el detalle',
@@ -321,8 +331,8 @@ void main() {
       await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
 
-      expect(_habilitado(tester, 'Solicitar adopción'), isFalse);
-      expect(find.textContaining('no está disponible para postulaciones'), findsOneWidget);
+      expect(_habilitado(tester, 'No disponible'), isFalse);
+      expect(find.text('Esta mascota ya fue adoptada'), findsOneWidget);
     });
 
     testWidgets('error 5xx ofrece reintentar y permite completar la postulación',

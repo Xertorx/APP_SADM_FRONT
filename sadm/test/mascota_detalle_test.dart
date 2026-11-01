@@ -9,6 +9,7 @@ import 'package:sadm/screens/mascota_detalle_screen.dart';
 import 'package:sadm/services/auth_session.dart';
 import 'package:sadm/services/mascota_service.dart';
 import 'package:sadm/services/postulacion_service.dart';
+import 'package:sadm/services/resumen_postulacion_service.dart';
 import 'package:sadm/theme/app_theme.dart';
 
 Future<List<String>> _abrir(WidgetTester tester, Map<String, dynamic> mascota) async {
@@ -39,6 +40,7 @@ Future<List<String>> _abrir(WidgetTester tester, Map<String, dynamic> mascota) a
                     mascotaId: 7,
                     mascotaService: MascotaService(client: client),
                     postulacionService: PostulacionService(client: client),
+                    resumenService: ResumenPostulacionService(client: client),
                   ),
                 ),
               ),
