@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:sadm/models/mascota.dart';
 import 'package:sadm/screens/mascotas_disponibles_screen.dart';
 import 'package:sadm/services/auth_session.dart';
+import 'package:sadm/services/busqueda_mascotas_service.dart';
 import 'package:sadm/services/mascota_service.dart';
 import 'package:sadm/theme/app_theme.dart';
 
@@ -14,7 +15,7 @@ Future<void> _abrir(WidgetTester tester, MockClient client) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: buildAppTheme(),
-      home: MascotasDisponiblesScreen(service: MascotaService(client: client)),
+      home: MascotasDisponiblesScreen(service: BusquedaMascotasService(client: client)),
     ),
   );
   await tester.pumpAndSettle();
@@ -24,7 +25,7 @@ void main() {
   setUp(() => AuthSession.token = 'token');
   tearDown(AuthSession.limpiar);
 
-  testWidgets('consulta GET /api/mascotas con el token y lista las mascotas', (tester) async {
+  testWidgets('consulta GET /api/mascotas/buscar con el token y lista las mascotas', (tester) async {
     late http.Request enviada;
     final client = MockClient((request) async {
       enviada = request;
@@ -43,7 +44,7 @@ void main() {
     await _abrir(tester, client);
 
     expect(enviada.method, 'GET');
-    expect(enviada.url.path, endsWith('/api/mascotas'));
+    expect(enviada.url.path, endsWith('/api/mascotas/buscar'));
     expect(enviada.headers['Authorization'], 'Bearer token');
     expect(find.text('Luna'), findsOneWidget);
     expect(find.text('Michi'), findsOneWidget);
