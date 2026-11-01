@@ -1,5 +1,7 @@
+import '../config/app_config.dart';
 import '../services/auth_session.dart';
 import '../utils/etiquetas.dart';
+import 'dador_publico.dart';
 
 /// Máximo de fotos que se muestran de una mascota.
 const maxFotosMascota = 6;
@@ -23,6 +25,7 @@ class MascotaDetalle {
     this.fotoUrl,
     this.fotos = const [],
     this.idDador,
+    this.fechaPublicacion,
   });
 
   factory MascotaDetalle.fromJson(Map<String, dynamic> json, {int? idPorDefecto}) {
@@ -43,7 +46,9 @@ class MascotaDetalle {
       ubicacion: _texto(json['ubicacion']),
       historialSalud: _texto(json['historialSalud']),
       fotoUrl: _texto(json['fotoUrl']),
-      fotos: _lista(json['fotos'], clave: 'url'),
+      // El backend envía `fotosIds`: cada id se sirve como imagen en /mascotas/fotos/{id}/imagen.
+      fotos: [..._lista(json['fotos'], clave: 'url'), ..._urlsDeFotosIds(json['fotosIds'])],
+      fechaPublicacion: fechaDesdeJson(json['fechaPublicacion']),
     );
   }
 
@@ -65,11 +70,43 @@ class MascotaDetalle {
   /// Usuario que publicó la mascota, cuando el backend lo informa.
   final int? idDador;
 
+  final DateTime? fechaPublicacion;
+
   /// Solo el dador propietario puede editar la publicación.
   bool get esDelUsuarioActual =>
       idDador != null && AuthSession.usuarioId != null && idDador == AuthSession.usuarioId;
 
   bool get disponible => estado.toUpperCase() == 'DISPONIBLE';
+
+  bool get reservada => estado.toUpperCase() == 'RESERVADA';
+
+  bool get adoptada => estado.toUpperCase() == 'ADOPTADA';
+
+  /// "Publicada hace 12 días · Bogotá, Suba"; null si no hay fecha de publicación.
+  String? encabezadoPublicacion({DateTime? ahora}) {
+    final fecha = fechaPublicacion;
+    if (fecha == null) return null;
+    final dias = (ahora ?? DateTime.now()).difference(fecha).inDays;
+    final hace = switch (dias) {
+      <= 0 => 'Publicada hoy',
+      1 => 'Publicada hace 1 día',
+      _ => 'Publicada hace $dias días',
+    };
+    return [hace, ?ubicacion].join(' · ');
+  }
+
+  /// Qué se muestra en lugar del botón de postulación (ver [AccionPostulacion]).
+  AccionPostulacion accionPostulacion({
+    required bool autenticado,
+    String? estadoPostulacion,
+  }) {
+    if (esDelUsuarioActual) return AccionPostulacion.propia;
+    if (estadoPostulacion != null) return AccionPostulacion.yaPostulado;
+    if (reservada || adoptada) return AccionPostulacion.cerrada;
+    if (!autenticado) return AccionPostulacion.requiereLogin;
+    if (!disponible) return AccionPostulacion.noDisponible;
+    return AccionPostulacion.postular;
+  }
 
   String get estadoTexto => humanizar(estado);
 
@@ -95,6 +132,35 @@ class MascotaDetalle {
       if (tamano != null) humanizar(tamano!),
     ].join(' · ');
   }
+}
+
+/// Qué muestra el detalle donde va el botón de postulación, en orden de prioridad.
+enum AccionPostulacion {
+  /// Es la publicación del usuario: "Esta es tu publicación", sin botón.
+  propia,
+
+  /// Caso B: el usuario ya se postuló; se muestra el estado de su postulación.
+  yaPostulado,
+
+  /// Caso C: mascota reservada o adoptada; botón "No disponible" deshabilitado.
+  cerrada,
+
+  /// Sin sesión: botón deshabilitado pidiendo iniciar sesión.
+  requiereLogin,
+
+  /// Otro estado no disponible (ej. pendiente de aprobación): botón deshabilitado.
+  noDisponible,
+
+  /// Caso A: botón "Solicitar adopción" habilitado.
+  postular,
+}
+
+List<String> _urlsDeFotosIds(Object? ids) {
+  if (ids is! List) return const [];
+  return [
+    for (final id in ids)
+      if (_entero(id) != null) '${AppConfig.baseUrl}/mascotas/fotos/${_entero(id)}/imagen',
+  ];
 }
 
 String? _texto(Object? valor) {
