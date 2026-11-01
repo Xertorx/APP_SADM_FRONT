@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/mascota_detalle.dart';
 import '../services/api_exception.dart';
+import '../services/mascota_eliminacion_service.dart';
 import '../services/mascota_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/foto_url.dart';
+import 'eliminar_mascota_dialog.dart';
 import 'mascota_form_screen.dart';
 
 /// "Dar en adopción": the usuario's published mascotas, with access to edit
@@ -84,6 +86,23 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     await _cargar(mostrarSpinner: false);
   }
 
+  Future<void> _eliminar(MascotaDetalle mascota) async {
+    final servicio = MascotaEliminacionService();
+    final eliminada = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => EliminarMascotaDialog(mascotaId: mascota.id, service: servicio),
+    );
+    servicio.dispose();
+    if (!mounted) return;
+    if (eliminada == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La publicación fue eliminada')),
+      );
+    }
+    await _cargar(mostrarSpinner: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -141,7 +160,11 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
             )
           else
             for (final mascota in _mascotas) ...[
-              _MascotaTile(mascota: mascota, onEditar: () => _editar(mascota)),
+              _MascotaTile(
+                mascota: mascota,
+                onEditar: () => _editar(mascota),
+                onEliminar: () => _eliminar(mascota),
+              ),
               const SizedBox(height: 12),
             ],
         ],
@@ -151,10 +174,15 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
 }
 
 class _MascotaTile extends StatelessWidget {
-  const _MascotaTile({required this.mascota, required this.onEditar});
+  const _MascotaTile({
+    required this.mascota,
+    required this.onEditar,
+    required this.onEliminar,
+  });
 
   final MascotaDetalle mascota;
   final VoidCallback onEditar;
+  final VoidCallback onEliminar;
 
   @override
   Widget build(BuildContext context) {
@@ -219,6 +247,11 @@ class _MascotaTile extends StatelessWidget {
                 tooltip: 'Editar ${mascota.nombre}',
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: onEditar,
+              ),
+              IconButton(
+                tooltip: 'Eliminar ${mascota.nombre}',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: onEliminar,
               ),
             ],
           ),
