@@ -1,3 +1,4 @@
+import '../services/auth_session.dart';
 import '../utils/etiquetas.dart';
 
 /// Máximo de fotos que se muestran de una mascota.
@@ -21,16 +22,20 @@ class MascotaDetalle {
     this.historialSalud,
     this.fotoUrl,
     this.fotos = const [],
+    this.idDador,
   });
 
-  factory MascotaDetalle.fromJson(Map<String, dynamic> json) {
+  factory MascotaDetalle.fromJson(Map<String, dynamic> json, {int? idPorDefecto}) {
+    final dador = json['dador'];
+    final idDador = json['idDador'] ?? json['dadorId'] ?? (dador is Map ? dador['id'] : null);
     return MascotaDetalle(
-      id: (json['id'] as num).toInt(),
-      nombre: json['nombre'] as String,
-      estado: json['estado'] as String,
+      idDador: _entero(idDador),
+      id: _entero(json['id'] ?? json['idMascota']) ?? idPorDefecto ?? (json['id'] as num).toInt(),
+      nombre: _texto(json['nombre']) ?? '',
+      estado: _texto(json['estado']) ?? '',
       especie: _texto(json['especie']),
       raza: _texto(json['raza']),
-      edad: (json['edad'] as num?)?.toInt(),
+      edad: _entero(json['edad']),
       unidadEdad: _texto(json['unidadEdad']),
       tamano: _texto(json['tamano']),
       sexo: _texto(json['sexo']),
@@ -56,6 +61,13 @@ class MascotaDetalle {
   final String? historialSalud;
   final String? fotoUrl;
   final List<String> fotos;
+
+  /// Usuario que publicó la mascota, cuando el backend lo informa.
+  final int? idDador;
+
+  /// Solo el dador propietario puede editar la publicación.
+  bool get esDelUsuarioActual =>
+      idDador != null && AuthSession.usuarioId != null && idDador == AuthSession.usuarioId;
 
   bool get disponible => estado.toUpperCase() == 'DISPONIBLE';
 
@@ -90,6 +102,8 @@ String? _texto(Object? valor) {
   final texto = valor.trim();
   return texto.isEmpty ? null : texto;
 }
+
+int? _entero(Object? valor) => valor is num ? valor.toInt() : int.tryParse('$valor');
 
 /// Accepts a JSON array (of strings or of objects holding [clave]) or a
 /// comma-separated string.

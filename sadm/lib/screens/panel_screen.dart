@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_session.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
-import 'mascota_form_screen.dart';
 import 'mascotas_disponibles_screen.dart';
+import 'mis_mascotas_screen.dart';
 
 /// Authenticated area: a usuario can adopt as well as give pets up for adoption.
 class PanelScreen extends StatelessWidget {
@@ -56,9 +56,9 @@ class PanelScreen extends StatelessWidget {
                 _AccionCard(
                   icon: Icons.volunteer_activism_outlined,
                   titulo: 'Dar en adopción',
-                  descripcion: 'Publica una mascota para que encuentre un nuevo hogar.',
+                  descripcion: 'Publica una mascota o edita las que ya publicaste.',
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const MascotaFormScreen()),
+                    MaterialPageRoute(builder: (_) => const MisMascotasScreen()),
                   ),
                 ),
               ],

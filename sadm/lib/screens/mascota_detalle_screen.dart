@@ -9,6 +9,7 @@ import '../services/mascota_service.dart';
 import '../services/postulacion_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/etiquetas.dart';
+import 'mascota_form_screen.dart';
 import 'mascota_galeria.dart';
 import 'postulacion_dialog.dart';
 
@@ -88,6 +89,22 @@ class _MascotaDetalleScreenState extends State<MascotaDetalleScreen> {
     } on ApiException {
       return false;
     }
+  }
+
+  Future<void> _editar() async {
+    final guardado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => MascotaFormScreen(
+          mascotaId: widget.mascotaId,
+          service: _mascotaService,
+        ),
+      ),
+    );
+    if (!mounted || guardado != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Publicación actualizada correctamente.')),
+    );
+    await _cargar(mostrarSpinner: false);
   }
 
   Future<void> _solicitarAdopcion() async {
@@ -258,6 +275,14 @@ class _MascotaDetalleScreenState extends State<MascotaDetalleScreen> {
         ),
         const SizedBox(height: 20),
         _buildAccionPostulacion(mascota),
+        if (mascota.esDelUsuarioActual) ...[
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _editar,
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Editar publicación'),
+          ),
+        ],
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).maybePop(),
