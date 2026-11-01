@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'mascotas_disponibles_screen.dart';
 import 'mis_mascotas_screen.dart';
+import 'perfil_screen.dart';
 
 /// Authenticated area: a usuario can adopt as well as give pets up for adoption.
 class PanelScreen extends StatelessWidget {
@@ -25,6 +26,13 @@ class PanelScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mi panel'),
         actions: [
+          IconButton(
+            tooltip: 'Mi perfil',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PerfilScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Cerrar sesión',
             icon: const Icon(Icons.logout),
