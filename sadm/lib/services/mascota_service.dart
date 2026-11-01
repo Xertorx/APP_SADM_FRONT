@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../config/app_config.dart';
 import '../models/mascota.dart';
 import '../models/mascota_detalle.dart';
+import '../models/mascota_edicion.dart';
 import 'api_exception.dart';
 import 'auth_session.dart';
 
@@ -22,42 +23,8 @@ class MascotaService {
   /// Publishes a new mascota with its photos. Returns the created id.
   /// Throws an [ApiException] subtype on failure.
   Future<int> crear(Mascota mascota, List<XFile> fotos) async {
-    final request = http.MultipartRequest('POST', _createUri)
-      ..headers.addAll(AuthSession.headers)
-      ..files.add(
-        http.MultipartFile.fromString(
-          'datos',
-          jsonEncode(mascota.toJson()),
-          contentType: MediaType('application', 'json'),
-        ),
-      );
-
-    for (final foto in fotos) {
-      final bytes = await foto.readAsBytes();
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'fotos',
-          bytes,
-          filename: foto.name,
-          contentType: _resolveMediaType(foto),
-        ),
-      );
-    }
-
-    late final http.StreamedResponse streamed;
-    try {
-      streamed = await _client.send(request).timeout(const Duration(seconds: 15));
-    } on SocketException {
-      throw const ConnectionException();
-    } on HttpException {
-      throw const ConnectionException();
-    } on FormatException {
-      throw const ConnectionException();
-    } catch (_) {
-      throw const ConnectionException();
-    }
-
-    final response = await http.Response.fromStream(streamed);
+    final request = await _multipart('POST', _createUri, mascota, fotos);
+    final response = await _enviar(request);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return _extractId(response.body);
@@ -83,14 +50,124 @@ class MascotaService {
     }
   }
 
-  /// `GET /api/mascotas` — every mascota that can be adopted. Accepts a bare
-  /// JSON array or one wrapped in `data` (optionally paged under `content`).
-  Future<List<MascotaDetalle>> listarDisponibles() async {
+  /// `GET /api/mascotas/{id}/editar` — current data of a mascota to edit.
+  Future<MascotaEdicion> obtenerParaEditar(int id) async {
     late final http.Response response;
     try {
       response = await _client
           .get(
-            Uri.parse('${AppConfig.baseUrl}/mascotas'),
+            Uri.parse('${AppConfig.baseUrl}/mascotas/$id/editar'),
+            headers: AuthSession.headers,
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      throw const ConnectionException();
+    }
+
+    if (response.statusCode == 200) {
+      try {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        final data = decoded['data'];
+        return MascotaEdicion.fromJson(data is Map<String, dynamic> ? data : decoded, id: id);
+      } catch (e) {
+        debugPrint('Respuesta de edición no interpretable: $e');
+        throw const ServerException('Respuesta inesperada del servidor.');
+      }
+    }
+
+    throw _errorEdicion(response);
+  }
+
+  /// `PUT /api/mascotas/{id}` as multipart/form-data: the JSON `datos` part
+  /// plus the optional new `fotos`.
+  Future<void> actualizar(int id, Mascota mascota, List<XFile> fotos) async {
+    final request = await _multipart(
+      'PUT',
+      Uri.parse('${AppConfig.baseUrl}/mascotas/$id'),
+      mascota,
+      fotos,
+    );
+    final response = await _enviar(request);
+
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+      return;
+    }
+    throw _errorEdicion(response);
+  }
+
+  ApiException _errorEdicion(http.Response response) {
+    final message = _extractMessage(utf8.decode(response.bodyBytes));
+    switch (response.statusCode) {
+      case 400:
+        return ValidationException(message ?? 'Los datos ingresados no son válidos.');
+      case 401:
+        return NoAutenticadoException(message ?? 'Tu sesión expiró. Inicia sesión para continuar.');
+      case 403:
+        return SinPermisosException(
+          message ?? 'Solo el dador propietario puede editar esta publicación.',
+        );
+      case 404:
+        return NotFoundException(message ?? 'La mascota no existe.');
+      default:
+        return ServerException(
+          message ?? 'Ocurrió un error inesperado (código ${response.statusCode}).',
+        );
+    }
+  }
+
+  Future<http.MultipartRequest> _multipart(
+    String method,
+    Uri uri,
+    Mascota mascota,
+    List<XFile> fotos,
+  ) async {
+    final request = http.MultipartRequest(method, uri)
+      ..headers.addAll(AuthSession.headers)
+      ..files.add(
+        http.MultipartFile.fromString(
+          'datos',
+          jsonEncode(mascota.toJson()),
+          contentType: MediaType('application', 'json'),
+        ),
+      );
+
+    for (final foto in fotos) {
+      final bytes = await foto.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'fotos',
+          bytes,
+          filename: foto.name,
+          contentType: _resolveMediaType(foto),
+        ),
+      );
+    }
+    return request;
+  }
+
+  Future<http.Response> _enviar(http.MultipartRequest request) async {
+    late final http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request).timeout(const Duration(seconds: 15));
+    } catch (_) {
+      throw const ConnectionException();
+    }
+    return http.Response.fromStream(streamed);
+  }
+
+  /// `GET /api/mascotas` — every mascota that can be adopted. Accepts a bare
+  /// JSON array or one wrapped in `data` (optionally paged under `content`).
+  Future<List<MascotaDetalle>> listarDisponibles() => _listar('/mascotas');
+
+  /// `GET /api/mascotas/mis-publicaciones` — mascotas de la persona autenticada.
+  Future<List<MascotaDetalle>> listarMias() => _listar('/mascotas/mis-publicaciones');
+
+  Future<List<MascotaDetalle>> _listar(String path) async {
+    late final http.Response response;
+    try {
+      response = await _client
+          .get(
+            Uri.parse('${AppConfig.baseUrl}$path'),
             headers: AuthSession.headers,
           )
           .timeout(const Duration(seconds: 15));
@@ -115,6 +192,12 @@ class MascotaService {
     final message = _extractMessage(response.body);
     if (response.statusCode == 401 || response.statusCode == 403) {
       throw NoAutenticadoException(message ?? 'Tu sesión expiró. Inicia sesión para continuar.');
+    }
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      throw NotFoundException(message ?? 'No se encontró el recurso solicitado.');
+    }
+    if (response.statusCode == 400) {
+      throw ValidationException(message ?? 'La solicitud no es válida.');
     }
     throw ServerException(
       message ?? 'Ocurrió un error inesperado (código ${response.statusCode}).',

@@ -88,4 +88,10 @@ class MascotaValidators {
     if (cantidad > 6) return 'Puedes agregar máximo 6 fotos.';
     return null;
   }
+
+  /// En la edición las fotos nuevas son opcionales.
+  static String? fotosEdicion(int cantidad) {
+    if (cantidad > 6) return 'Puedes agregar máximo 6 fotos.';
+    return null;
+  }
 }

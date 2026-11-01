@@ -9,6 +9,7 @@ import '../services/auth_session.dart';
 import '../services/mascota_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/mascota_validators.dart';
+import '../utils/foto_url.dart';
 
 const _especies = ['PERRO', 'GATO', 'OTRO'];
 const _tamanos = ['PEQUENO', 'MEDIANO', 'GRANDE'];
@@ -48,7 +49,11 @@ const _maxFotos = 6;
 const _maxBytesPorFoto = 5 * 1024 * 1024;
 
 class MascotaFormScreen extends StatefulWidget {
-  const MascotaFormScreen({super.key});
+  const MascotaFormScreen({super.key, this.mascotaId, this.service});
+
+  /// Si se indica, el formulario edita la mascota publicada con ese id.
+  final int? mascotaId;
+  final MascotaService? service;
 
   @override
   State<MascotaFormScreen> createState() => _MascotaFormScreenState();
@@ -58,8 +63,10 @@ enum _SubmitStatus { idle, loading, success }
 
 class _MascotaFormScreenState extends State<MascotaFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _service = MascotaService();
+  late final MascotaService _service = widget.service ?? MascotaService();
   final _picker = ImagePicker();
+
+  bool get _edicion => widget.mascotaId != null;
 
   // El dador es el usuario logueado; solo se pide el id si el token no lo trae.
   final int? _usuarioId = AuthSession.usuarioId;
@@ -77,8 +84,24 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
   final Set<String> _temperamentoSeleccionado = {};
   final List<XFile> _fotos = [];
 
+  // Solo en modo edición.
+  bool _cargando = false;
+  String? _errorCarga;
+  int? _idDador;
+  bool _tienePostulacionesActivas = false;
+  List<String> _fotosActuales = const [];
+
   _SubmitStatus _status = _SubmitStatus.idle;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_edicion) {
+      _cargando = true;
+      _cargarParaEditar();
+    }
+  }
 
   @override
   void dispose() {
@@ -88,9 +111,80 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
     _edadCtrl.dispose();
     _historialSaludCtrl.dispose();
     _ubicacionCtrl.dispose();
-    _service.dispose();
+    if (widget.service == null) _service.dispose();
     super.dispose();
   }
+
+  Future<void> _cargarParaEditar() async {
+    setState(() {
+      _cargando = true;
+      _errorCarga = null;
+    });
+
+    if (!AuthSession.autenticado) {
+      setState(() {
+        _cargando = false;
+        _errorCarga = 'Inicia sesión para editar tus publicaciones.';
+      });
+      return;
+    }
+
+    try {
+      final edicion = await _service.obtenerParaEditar(widget.mascotaId!);
+      if (!mounted) return;
+      final mascota = edicion.mascota;
+
+      final dador = mascota.idDador;
+      if (dador != null && _usuarioId != null && dador != _usuarioId) {
+        setState(() {
+          _cargando = false;
+          _errorCarga = _mensajeSoloPropietario;
+        });
+        return;
+      }
+
+      String? opcion(String? valor, List<String> opciones) {
+        final normalizado = valor?.toUpperCase();
+        return opciones.contains(normalizado) ? normalizado : null;
+      }
+
+      _idDador = dador;
+      _nombreCtrl.text = mascota.nombre;
+      _razaCtrl.text = mascota.raza ?? '';
+      _edadCtrl.text = mascota.edad?.toString() ?? '';
+      _historialSaludCtrl.text = mascota.historialSalud ?? '';
+      _ubicacionCtrl.text = mascota.ubicacion ?? '';
+      setState(() {
+        _especie = opcion(mascota.especie, _especies);
+        _unidadEdad = opcion(mascota.unidadEdad, _unidadesEdad);
+        _tamano = opcion(mascota.tamano, _tamanos);
+        _sexo = opcion(mascota.sexo, _sexos);
+        _temperamentoSeleccionado
+          ..clear()
+          ..addAll(
+            mascota.temperamento.map((t) => t.toUpperCase()).where(_temperamentos.contains),
+          );
+        _fotosActuales = mascota.galeria;
+        _tienePostulacionesActivas = edicion.tienePostulacionesActivas;
+        _cargando = false;
+      });
+    } on SinPermisosException {
+      if (!mounted) return;
+      setState(() {
+        _cargando = false;
+        _errorCarga = _mensajeSoloPropietario;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _cargando = false;
+        _errorCarga = e.message;
+      });
+    }
+  }
+
+  static const _mensajeSoloPropietario =
+      'Solo el dador propietario puede editar esta publicación.';
 
   Future<void> _agregarFoto() async {
     if (_fotos.length >= _maxFotos) return;
@@ -125,7 +219,9 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
     final temperamentoError = MascotaValidators.temperamento(
       _temperamentoSeleccionado.toList(),
     );
-    final fotosError = MascotaValidators.fotos(_fotos.length);
+    final fotosError = _edicion
+        ? MascotaValidators.fotosEdicion(_fotos.length)
+        : MascotaValidators.fotos(_fotos.length);
 
     if (!formOk || temperamentoError != null || fotosError != null) {
       setState(() => _errorMessage = fotosError ?? temperamentoError);
@@ -135,7 +231,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
     setState(() => _status = _SubmitStatus.loading);
 
     final mascota = Mascota(
-      idDador: _usuarioId ?? int.parse(_idDadorCtrl.text.trim()),
+      idDador: _idDador ?? _usuarioId ?? int.parse(_idDadorCtrl.text.trim()),
       nombre: _nombreCtrl.text.trim(),
       especie: _especie!,
       raza: _razaCtrl.text.trim().isEmpty ? null : _razaCtrl.text.trim(),
@@ -151,6 +247,12 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
     );
 
     try {
+      if (_edicion) {
+        await _service.actualizar(widget.mascotaId!, mascota, _fotos);
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
+        return;
+      }
       await _service.crear(mascota, _fotos);
       if (!mounted) return;
       setState(() => _status = _SubmitStatus.success);
@@ -158,7 +260,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
       if (!mounted) return;
       setState(() {
         _status = _SubmitStatus.idle;
-        _errorMessage = e.message;
+        _errorMessage = e is SinPermisosException && _edicion ? _mensajeSoloPropietario : e.message;
       });
     } catch (_) {
       if (!mounted) return;
@@ -196,10 +298,41 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
     }
 
     final isLoading = _status == _SubmitStatus.loading;
+    final titulo = _edicion ? 'Editar mascota' : 'Publicar mascota';
+
+    if (_edicion && (_cargando || _errorCarga != null)) {
+      return Scaffold(
+        appBar: AppBar(title: Text(titulo)),
+        body: Center(
+          child: _cargando
+              ? const CircularProgressIndicator()
+              : Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(_errorCarga!, textAlign: TextAlign.center),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_errorCarga != _mensajeSoloPropietario &&
+                          AuthSession.autenticado)
+                        TextButton.icon(
+                          onPressed: _cargarParaEditar,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reintentar'),
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Publicar mascota'),
+        title: Text(titulo),
       ),
       body: SafeArea(
         child: Center(
@@ -213,7 +346,11 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _HeaderBanner(),
+                    _HeaderBanner(edicion: _edicion),
+                    if (_edicion && _tienePostulacionesActivas) ...[
+                      const SizedBox(height: 16),
+                      const _AdvertenciaPostulaciones(),
+                    ],
                     const SizedBox(height: 20),
                     Card(
                       child: Padding(
@@ -223,7 +360,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                           children: [
                             const _SectionTitle('Datos de la mascota'),
                             const SizedBox(height: 12),
-                            if (_usuarioId == null) ...[
+                            if (_usuarioId == null && _idDador == null) ...[
                               _buildTextField(
                                 controller: _idDadorCtrl,
                                 label: '(temporal) ID del dador',
@@ -361,11 +498,16 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                             const SizedBox(height: 20),
                             const _SectionTitle('Fotos'),
                             const SizedBox(height: 10),
+                            if (_edicion && _fotosActuales.isNotEmpty) ...[
+                              _FotosActuales(urls: _fotosActuales),
+                              const SizedBox(height: 14),
+                            ],
                             _FotosSelector(
                               fotos: _fotos,
                               enabled: !isLoading,
                               onAgregar: _agregarFoto,
                               onQuitar: _quitarFoto,
+                              opcional: _edicion,
                             ),
                           ],
                         ),
@@ -387,7 +529,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Publicar'),
+                          : Text(_edicion ? 'Guardar cambios' : 'Publicar'),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -460,7 +602,9 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
 }
 
 class _HeaderBanner extends StatelessWidget {
-  const _HeaderBanner();
+  const _HeaderBanner({this.edicion = false});
+
+  final bool edicion;
 
   @override
   Widget build(BuildContext context) {
@@ -483,14 +627,16 @@ class _HeaderBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Publica una mascota',
+                  edicion ? 'Edita tu publicación' : 'Publica una mascota',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Ayúdale a encontrar un hogar. Tu publicación quedará pendiente de aprobación.',
+                  edicion
+                      ? 'Actualiza los datos de tu mascota y guarda los cambios.'
+                      : 'Ayúdale a encontrar un hogar. Tu publicación quedará pendiente de aprobación.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -525,10 +671,12 @@ class _FotosSelector extends StatelessWidget {
     required this.enabled,
     required this.onAgregar,
     required this.onQuitar,
+    this.opcional = false,
   });
 
   final List<XFile> fotos;
   final bool enabled;
+  final bool opcional;
   final VoidCallback onAgregar;
   final void Function(int index) onQuitar;
 
@@ -601,11 +749,91 @@ class _FotosSelector extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '${fotos.length}/$_maxFotos fotos · Mín. 1 · JPG/PNG · 5 MB c/u',
+          opcional
+              ? '${fotos.length}/$_maxFotos fotos nuevas · Opcional · JPG/PNG · 5 MB c/u'
+              : '${fotos.length}/$_maxFotos fotos · Mín. 1 · JPG/PNG · 5 MB c/u',
           style: Theme.of(context)
               .textTheme
               .bodySmall
               ?.copyWith(color: AppPalette.textDark.withValues(alpha: 0.6)),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdvertenciaPostulaciones extends StatelessWidget {
+  const _AdvertenciaPostulaciones();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.amber.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.amber.shade700.withValues(alpha: 0.6)),
+        ),
+        child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppPalette.textDark, size: 22),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Esta mascota tiene postulaciones activas. Los cambios que guardes '
+                'serán visibles para quienes ya se postularon.',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FotosActuales extends StatelessWidget {
+  const _FotosActuales({required this.urls});
+
+  final List<String> urls;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Fotos actuales',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppPalette.textDark.withValues(alpha: 0.6),
+              ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final url in urls)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 84,
+                  height: 84,
+                  child: Image.network(
+                    resolverUrlFoto(url) ?? '',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const ColoredBox(
+                      color: Colors.black12,
+                      child: Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
