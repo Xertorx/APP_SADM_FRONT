@@ -6,6 +6,8 @@ import 'home_screen.dart';
 import 'mascotas_disponibles_screen.dart';
 import 'mis_mascotas_screen.dart';
 import 'perfil_screen.dart';
+import '../config/mis_postulaciones_textos.dart';
+import 'mis_postulaciones_screen.dart';
 
 /// Authenticated area: a usuario can adopt as well as give pets up for adoption.
 class PanelScreen extends StatelessWidget {
@@ -67,6 +69,15 @@ class PanelScreen extends StatelessWidget {
                   descripcion: 'Publica una mascota o edita las que ya publicaste.',
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const MisMascotasScreen()),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _AccionCard(
+                  icon: Icons.assignment_outlined,
+                  titulo: MisPostulacionesTextos.accionTitulo,
+                  descripcion: MisPostulacionesTextos.accionDescripcion,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const MisPostulacionesScreen()),
                   ),
                 ),
               ],
