@@ -17,6 +17,12 @@ class AuthSession {
 
   static bool get autenticado => token != null;
 
+  /// HU27-HU28: rol del usuario (claim `role` del JWT). Solo sirve para mostrar u ocultar
+  /// opciones de administrador; la seguridad real la aplica el backend con @RolesAllowed.
+  static String? rol = token == null ? null : _rolDesdeToken(token!);
+
+  static bool get esAdministrador => rol == 'ADMINISTRADOR';
+
   static Map<String, String> get headers => {
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
@@ -25,11 +31,13 @@ class AuthSession {
   static void iniciar(String accessToken) {
     token = accessToken;
     usuarioId = _idDesdeToken(accessToken);
+    rol = _rolDesdeToken(accessToken);
   }
 
   static void limpiar() {
     token = null;
     usuarioId = null;
+    rol = null;
   }
 
   /// Best-effort read of the usuario id from the JWT payload.
@@ -51,6 +59,23 @@ class AuthSession {
       }
     } catch (_) {
       // Token opaco o malformado: no hay id disponible.
+    }
+    return null;
+  }
+
+  /// HU27-HU28: lectura del claim `role` del payload del JWT (null si no está o el token es opaco).
+  static String? _rolDesdeToken(String jwt) {
+    try {
+      final partes = jwt.split('.');
+      if (partes.length != 3) return null;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(partes[1]))),
+      );
+      if (payload is Map<String, dynamic> && payload['role'] is String) {
+        return payload['role'] as String;
+      }
+    } catch (_) {
+      // Token opaco o malformado: no hay rol disponible.
     }
     return null;
   }

@@ -8,6 +8,8 @@ import 'mis_mascotas_screen.dart';
 import 'perfil_screen.dart';
 import '../config/mis_postulaciones_textos.dart';
 import 'mis_postulaciones_screen.dart';
+import '../config/admin_usuarios_textos.dart';
+import 'admin_usuarios_screen.dart';
 
 /// Authenticated area: a usuario can adopt as well as give pets up for adoption.
 class PanelScreen extends StatelessWidget {
@@ -80,6 +82,18 @@ class PanelScreen extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const MisPostulacionesScreen()),
                   ),
                 ),
+                // HU27-HU28: solo visible para el ADMINISTRADOR (el backend lo exige igualmente).
+                if (AuthSession.esAdministrador) ...[
+                  const SizedBox(height: 14),
+                  _AccionCard(
+                    icon: Icons.admin_panel_settings_outlined,
+                    titulo: AdminUsuariosTextos.accionTitulo,
+                    descripcion: AdminUsuariosTextos.accionDescripcion,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AdminUsuariosScreen()),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
