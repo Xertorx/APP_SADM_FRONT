@@ -7,15 +7,22 @@ import '../models/perfil.dart';
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/perfil_service.dart';
+import '../services/ubicacion_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/geolocalizacion.dart';
 import '../utils/perfil_validators.dart';
 import 'home_screen.dart';
+import 'ubicacion_referencia_seccion.dart';
 
 /// HU04 — "Mi perfil": consulta y edición de datos de contacto, foto y contraseña.
 class PerfilScreen extends StatefulWidget {
-  const PerfilScreen({super.key, this.service});
+  const PerfilScreen({super.key, this.service, this.ubicacionService, this.proveedorUbicacion});
 
   final PerfilService? service;
+
+  /// HU10: para simular la ubicación de referencia y el GPS en los tests.
+  final UbicacionService? ubicacionService;
+  final ProveedorUbicacion? proveedorUbicacion;
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -290,6 +297,13 @@ class _PerfilScreenState extends State<PerfilScreen> {
             enabled: !guardando,
             decoration: const InputDecoration(labelText: 'Ubicación'),
             validator: PerfilValidators.ubicacion,
+          ),
+          // HU10: ubicación de referencia (respaldo de la búsqueda por cercanía); se guarda aparte.
+          const Divider(height: 40),
+          UbicacionReferenciaSeccion(
+            onSesionExpirada: _sesionExpirada,
+            service: widget.ubicacionService,
+            proveedor: widget.proveedorUbicacion,
           ),
           const Divider(height: 40),
           Text(

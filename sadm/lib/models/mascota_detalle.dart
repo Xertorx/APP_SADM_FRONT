@@ -26,6 +26,7 @@ class MascotaDetalle {
     this.fotos = const [],
     this.idDador,
     this.fechaPublicacion,
+    this.distanciaKm,
   });
 
   factory MascotaDetalle.fromJson(Map<String, dynamic> json, {int? idPorDefecto}) {
@@ -49,6 +50,7 @@ class MascotaDetalle {
       // El backend envía `fotosIds`: cada id se sirve como imagen en /mascotas/fotos/{id}/imagen.
       fotos: [..._lista(json['fotos'], clave: 'url'), ..._urlsDeFotosIds(json['fotosIds'])],
       fechaPublicacion: fechaDesdeJson(json['fechaPublicacion']),
+      distanciaKm: json['distanciaKm'] is num ? (json['distanciaKm'] as num).toDouble() : null,
     );
   }
 
@@ -71,6 +73,10 @@ class MascotaDetalle {
   final int? idDador;
 
   final DateTime? fechaPublicacion;
+
+  /// HU10: distancia aproximada en km desde el usuario (solo en búsquedas por cercanía;
+  /// null si la mascota no tiene coordenadas). El backend nunca envía las coordenadas.
+  final double? distanciaKm;
 
   /// Solo el dador propietario puede editar la publicación.
   bool get esDelUsuarioActual =>

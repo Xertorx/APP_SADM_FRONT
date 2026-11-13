@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../config/app_config.dart';
+import '../config/geolocalizacion_textos.dart';
 import '../models/mascota.dart';
+import '../models/ubicacion.dart';
 import '../services/api_exception.dart';
 import '../services/auth_session.dart';
 import '../services/mascota_service.dart';
@@ -11,6 +13,7 @@ import '../theme/app_theme.dart';
 import '../utils/mascota_validators.dart';
 import '../utils/foto_url.dart';
 import 'configuracion_seleccion_screen.dart';
+import 'selector_ubicacion.dart';
 
 const _especies = ['PERRO', 'GATO', 'OTRO'];
 const _tamanos = ['PEQUENO', 'MEDIANO', 'GRANDE'];
@@ -84,6 +87,9 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
   String? _sexo;
   final Set<String> _temperamentoSeleccionado = {};
   final List<XFile> _fotos = [];
+
+  /// HU10: ubicación opcional para búsquedas cercanas (GPS o localidad).
+  Ubicacion? _coordenadas;
 
   // Solo en modo edición.
   bool _cargando = false;
@@ -245,6 +251,8 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
           ? null
           : _historialSaludCtrl.text.trim(),
       ubicacion: _ubicacionCtrl.text.trim(),
+      latitud: _edicion ? null : _coordenadas?.latitud,
+      longitud: _edicion ? null : _coordenadas?.longitud,
     );
 
     try {
@@ -299,6 +307,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
       _sexo = null;
       _temperamentoSeleccionado.clear();
       _fotos.clear();
+      _coordenadas = null;
       _status = _SubmitStatus.idle;
       _errorMessage = null;
     });
@@ -508,6 +517,18 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                               validator: MascotaValidators.ubicacion,
                               enabled: !isLoading,
                             ),
+                            // HU10: solo al publicar. La edición (HU06) no cambia las coordenadas.
+                            if (!_edicion) ...[
+                              const SizedBox(height: 20),
+                              const _SectionTitle(GeolocalizacionTextos.seccionPublicacion),
+                              const SizedBox(height: 10),
+                              SelectorUbicacion(
+                                ubicacion: _coordenadas,
+                                enabled: !isLoading,
+                                permitirQuitar: true,
+                                onChanged: (u) => setState(() => _coordenadas = u),
+                              ),
+                            ],
                             const SizedBox(height: 20),
                             const _SectionTitle('Fotos'),
                             const SizedBox(height: 10),

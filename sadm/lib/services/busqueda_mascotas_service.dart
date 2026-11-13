@@ -15,11 +15,21 @@ class BusquedaMascotasService {
   final http.Client _client;
 
   /// Mascotas DISPONIBLES que cumplen el nombre (opcional) y los filtros, todo en una petición.
+  ///
+  /// HU10: con [lat] y [lon] (las dos o ninguna) el backend ordena por cercanía y cada mascota
+  /// trae `distanciaKm`.
   Future<List<MascotaDetalle>> buscar({
     String? nombre,
     FiltrosMascota filtros = FiltrosMascota.vacio,
+    double? lat,
+    double? lon,
   }) async {
-    final lista = await _get('/mascotas/buscar', filtros.toQueryParameters(nombre: nombre));
+    final query = filtros.toQueryParameters(nombre: nombre);
+    if (lat != null && lon != null) {
+      query['lat'] = [lat.toStringAsFixed(6)];
+      query['lon'] = [lon.toStringAsFixed(6)];
+    }
+    final lista = await _get('/mascotas/buscar', query);
     return lista
         .cast<Map<String, dynamic>>()
         .map((json) => MascotaDetalle.fromJson({'estado': 'DISPONIBLE', ...json}))
