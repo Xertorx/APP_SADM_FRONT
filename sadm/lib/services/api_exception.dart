@@ -56,6 +56,12 @@ class MascotaNoDisponibleException extends ApiException {
   ]);
 }
 
+/// Raised on HTTP 409 responses that are not a duplicate email (e.g. the
+/// configuración de selección is not editable or not finalized yet).
+class ConflictoException extends ApiException {
+  const ConflictoException(super.message);
+}
+
 /// Raised on HTTP 401 responses.
 class NoAutenticadoException extends ApiException {
   const NoAutenticadoException([

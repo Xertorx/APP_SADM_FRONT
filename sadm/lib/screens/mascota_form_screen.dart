@@ -10,6 +10,7 @@ import '../services/mascota_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/mascota_validators.dart';
 import '../utils/foto_url.dart';
+import 'configuracion_seleccion_screen.dart';
 
 const _especies = ['PERRO', 'GATO', 'OTRO'];
 const _tamanos = ['PEQUENO', 'MEDIANO', 'GRANDE'];
@@ -253,8 +254,20 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
         Navigator.of(context).pop(true);
         return;
       }
-      await _service.crear(mascota, _fotos);
+      final id = await _service.crear(mascota, _fotos);
       if (!mounted) return;
+      if (id > 0) {
+        // HU12: la mascota queda en borrador y se configura su proceso de selección.
+        await Navigator.of(context).pushReplacement<bool, bool>(
+          MaterialPageRoute(
+            builder: (_) => ConfiguracionSeleccionScreen(
+              mascotaId: id,
+              nombreMascota: mascota.nombre,
+            ),
+          ),
+        );
+        return;
+      }
       setState(() => _status = _SubmitStatus.success);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -529,7 +542,7 @@ class _MascotaFormScreenState extends State<MascotaFormScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : Text(_edicion ? 'Guardar cambios' : 'Publicar'),
+                          : Text(_edicion ? 'Guardar cambios' : 'Continuar'),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -904,14 +917,15 @@ class _SuccessView extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    '¡Publicación enviada!',
+                    '¡Mascota registrada!',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Tu publicación fue enviada y está en revisión por el administrador',
+                    'Quedó como borrador. Configura su proceso de selección desde '
+                    '"Dar en adopción" para enviarla a revisión.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),

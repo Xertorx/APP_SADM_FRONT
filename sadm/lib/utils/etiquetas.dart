@@ -5,6 +5,7 @@ const _especiales = {
   'TIMIDO': 'Tímido',
   'ENERGICO': 'Enérgico',
   'CARINOSO': 'Cariñoso',
+  'BORRADOR_CONFIGURACION': 'Borrador de configuración',
 };
 
 /// Converts backend codes (`ETAPA_1_EN_CURSO`, `PEQUENO`) into readable text.

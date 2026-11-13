@@ -6,6 +6,7 @@ import '../services/mascota_eliminacion_service.dart';
 import '../services/mascota_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/foto_url.dart';
+import 'configuracion_seleccion_screen.dart';
 import 'eliminar_mascota_dialog.dart';
 import 'mascota_form_screen.dart';
 
@@ -81,6 +82,26 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
     if (guardado == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Publicación actualizada correctamente.')),
+      );
+    }
+    await _cargar(mostrarSpinner: false);
+  }
+
+  Future<void> _configurar(MascotaDetalle mascota) async {
+    final enviada = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ConfiguracionSeleccionScreen(
+          mascotaId: mascota.id,
+          nombreMascota: mascota.nombre,
+          soloLectura: mascota.estado.isNotEmpty &&
+              mascota.estado.toUpperCase() != estadoBorradorConfiguracion,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (enviada == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La mascota fue enviada a revisión.')),
       );
     }
     await _cargar(mostrarSpinner: false);
@@ -163,6 +184,7 @@ class _MisMascotasScreenState extends State<MisMascotasScreen> {
               _MascotaTile(
                 mascota: mascota,
                 onEditar: () => _editar(mascota),
+                onConfigurar: () => _configurar(mascota),
                 onEliminar: () => _eliminar(mascota),
               ),
               const SizedBox(height: 12),
@@ -177,11 +199,13 @@ class _MascotaTile extends StatelessWidget {
   const _MascotaTile({
     required this.mascota,
     required this.onEditar,
+    required this.onConfigurar,
     required this.onEliminar,
   });
 
   final MascotaDetalle mascota;
   final VoidCallback onEditar;
+  final VoidCallback onConfigurar;
   final VoidCallback onEliminar;
 
   @override
@@ -242,6 +266,11 @@ class _MascotaTile extends StatelessWidget {
                     ],
                   ],
                 ),
+              ),
+              IconButton(
+                tooltip: 'Proceso de selección de ${mascota.nombre}',
+                icon: const Icon(Icons.tune),
+                onPressed: onConfigurar,
               ),
               IconButton(
                 tooltip: 'Editar ${mascota.nombre}',
