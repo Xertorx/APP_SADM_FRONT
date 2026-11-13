@@ -10,6 +10,8 @@ import '../config/mis_postulaciones_textos.dart';
 import 'mis_postulaciones_screen.dart';
 import '../config/admin_usuarios_textos.dart';
 import 'admin_usuarios_screen.dart';
+import '../config/estadisticas_textos.dart';
+import 'admin_estadisticas_screen.dart';
 
 /// Authenticated area: a usuario can adopt as well as give pets up for adoption.
 class PanelScreen extends StatelessWidget {
@@ -91,6 +93,16 @@ class PanelScreen extends StatelessWidget {
                     descripcion: AdminUsuariosTextos.accionDescripcion,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const AdminUsuariosScreen()),
+                    ),
+                  ),
+                  // HU30: panel de estadísticas, también solo para el ADMINISTRADOR.
+                  const SizedBox(height: 14),
+                  _AccionCard(
+                    icon: Icons.bar_chart_outlined,
+                    titulo: EstadisticasTextos.accionTitulo,
+                    descripcion: EstadisticasTextos.accionDescripcion,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AdminEstadisticasScreen()),
                     ),
                   ),
                 ],
