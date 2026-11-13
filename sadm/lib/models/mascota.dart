@@ -16,6 +16,8 @@ class Mascota {
     required this.temperamento,
     this.historialSalud,
     required this.ubicacion,
+    this.latitud,
+    this.longitud,
   });
 
   // TODO HU02: tomar del usuario autenticado en vez de un campo editable.
@@ -30,6 +32,10 @@ class Mascota {
   final List<String> temperamento;
   final String? historialSalud;
   final String ubicacion;
+
+  /// HU10 (opcionales, las dos o ninguna): coordenadas para las búsquedas por cercanía.
+  final double? latitud;
+  final double? longitud;
 
   /// Converts this model into the exact JSON payload expected by the
   /// "datos" part of `POST /SADM/mascotas/crear`.
@@ -46,6 +52,10 @@ class Mascota {
       'temperamento': temperamento,
       'historialSalud': historialSalud,
       'ubicacion': ubicacion,
+      if (latitud != null && longitud != null) ...{
+        'latitud': latitud,
+        'longitud': longitud,
+      },
     };
   }
 }
